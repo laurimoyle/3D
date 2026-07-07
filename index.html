@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AR Anchor Art — Five States of a Face</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    #hint {
+      position: fixed; bottom: 20px; left: 0; right: 0;
+      text-align: center; color: white; font-family: sans-serif;
+      font-size: 15px; text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+      pointer-events: none; z-index: 10;
+    }
+    #mode {
+      position: fixed; top: 16px; left: 0; right: 0;
+      text-align: center; color: white; font-family: sans-serif;
+      font-size: 13px; letter-spacing: 0.06em;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.9);
+      pointer-events: none; z-index: 10;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="hint">Point your camera at the painting</div>
+  <div id="mode"></div>
+
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; uiLoading: yes; uiScanning: yes;"
+    color-space="sRGB"
+    renderer="colorManagement: true; physicallyCorrectLights: true"
+    gltf-model="dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.7/"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false">
+
+    <a-assets>
+      <img id="sculpture" src="./sculpture.png" crossorigin="anonymous" />
+      <a-asset-item id="doodleModel" src="./doodle.glb"></a-asset-item>
+    </a-assets>
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- Everything inside this entity appears anchored to your painting -->
+    <a-entity mindar-image-target="targetIndex: 0">
+
+      <!-- STATE A: the sculpture ghost (photo cutout of the real piece).
+           Centered on the painting, floating off the canvas. Still. -->
+      <a-image
+        id="ghost"
+        src="#sculpture"
+        width="0.75"
+        height="1.08"
+        position="0 0 0.35"
+        transparent="true"
+        alpha-test="0.05">
+      </a-image>
+
+      <!-- STATE B: the AI interpretation (compressed model).
+           Model is 1 unit tall; scale 2 makes it ~double the ghost.
+           Its top sits at y = +0.55 (about hair-height on a portrait
+           painting), so its center is at 0.55 - 1.0 = -0.45.
+           z = 0.15 keeps it slightly behind the ghost in "both" mode. -->
+      <a-entity
+        id="aimodel"
+        gltf-model="#doodleModel"
+        scale="2 2 2"
+        position="0 -0.45 0.15"
+        visible="false">
+      </a-entity>
+
+    </a-entity>
+  </a-scene>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const target = document.querySelector('[mindar-image-target]');
+      const hint = document.getElementById('hint');
+      const modeLabel = document.getElementById('mode');
+      const ghost = document.getElementById('ghost');
+      const aimodel = document.getElementById('aimodel');
+
+      // Tap anywhere to cycle: 0 = ghost, 1 = AI model, 2 = both
+      const states = [
+        { ghost: true,  model: false, label: '1 / 3 — THE GHOST' },
+        { ghost: false, model: true,  label: "2 / 3 — THE MACHINE'S GUESS" },
+        { ghost: true,  model: true,  label: '3 / 3 — BOTH' },
+      ];
+      let current = 0;
+
+      function applyState() {
+        const s = states[current];
+        ghost.setAttribute('visible', s.ghost);
+        aimodel.setAttribute('visible', s.model);
+        modeLabel.textContent = s.label + '  \u00b7  tap to change';
+      }
+      applyState();
+
+      document.body.addEventListener('click', () => {
+        current = (current + 1) % states.length;
+        applyState();
+      });
+
+      target.addEventListener('targetFound', () => {
+        hint.style.display = 'none';
+        modeLabel.style.display = 'block';
+      });
+      target.addEventListener('targetLost', () => {
+        hint.style.display = 'block';
+        modeLabel.style.display = 'none';
+      });
+    });
+  </script>
+</body>
+</html>
